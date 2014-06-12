@@ -1,7 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 
-module Entities where
+module AST where
 
 import Lens.Family
 import Lens.Family.TH

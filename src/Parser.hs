@@ -9,8 +9,8 @@ import Text.Parsec hiding (State)
 import Text.Parsec.Indent
 import qualified Text.Parsec.Expr as Ex
 
+import AST
 import Lexer
-import Entities
 
 -------------------------------------------------------------------------------
 -- Condtional

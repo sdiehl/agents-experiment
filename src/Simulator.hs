@@ -27,7 +27,7 @@ import Data.Data
 import Data.Traversable (traverse, forM)
 import qualified Data.Set as S
 
-import Entities as E
+import AST as E
 import Utils (printfa, PrintfArgT(..))
 
 -------------------------------------------------------------------------------

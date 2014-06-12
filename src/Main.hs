@@ -1,8 +1,8 @@
 module Main where
 
+import AST
 import Lexer
 import Parser
-import Entities
 import qualified Simulator
 
 import Text.Show.Pretty
