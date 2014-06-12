@@ -114,22 +114,25 @@ evalC ctx expr = ev expr
       Not Fl         -> pure Tr
       Not NotDefined -> pure Tr -- XXX
 
-      Not x     -> ev =<< Not <$> (ev x)
-      And a b   -> ev =<< And <$> (ev a) <*> (ev b)
-      Or a b    -> ev =<< Or  <$> (ev a) <*> (ev b)
+      Not x     -> ev =<< liftA  Not (ev x)
+      And a b   -> ev =<< liftA2 And (ev a) (ev b)
+      Or a b    -> ev =<< liftA2 Or  (ev a) (ev b)
 
-      Gt  (Const a) (Const b) -> pure $ if a > b  then Tr else Fl
-      Gte (Const a) (Const b) -> pure $ if a >= b then Tr else Fl
-      Lt  (Const a) (Const b) -> pure $ if a > b  then Tr else Fl
-      Lte (Const a) (Const b) -> pure $ if a <= b then Tr else Fl
-      Eq  (Const a) (Const b) -> pure $ if a == b then Tr else Fl
+      Gt  (Const a) (Const b) -> condA (a > b)
+      Gte (Const a) (Const b) -> condA (a >= b)
+      Lt  (Const a) (Const b) -> condA (a > b)
+      Lte (Const a) (Const b) -> condA (a <= b)
+      Eq  (Const a) (Const b) -> condA (a == b)
 
-      Gt a b  -> ev =<< Gt  <$> (ev a) <*> (ev b)
-      Gte a b -> ev =<< Gte <$> (ev a) <*> (ev b)
-      Lt a b  -> ev =<< Lt  <$> (ev a) <*> (ev b)
-      Lte a b -> ev =<< Lte <$> (ev a) <*> (ev b)
-      Eq a b  -> ev =<< Eq  <$> (ev a) <*> (ev b)
+      Gt a b  -> ev =<< liftA2 Gt  (ev a) (ev b)
+      Gte a b -> ev =<< liftA2 Gte (ev a) (ev b)
+      Lt a b  -> ev =<< liftA2 Lt  (ev a) (ev b)
+      Lte a b -> ev =<< liftA2 Lte (ev a) (ev b)
+      Eq a b  -> ev =<< liftA2 Eq  (ev a) (ev b)
 
+condA :: Applicative f => Bool -> f Cond
+condA True  = pure Tr
+condA False = pure Fl
 
 condToBool :: Cond -> Bool
 condToBool Tr = True
