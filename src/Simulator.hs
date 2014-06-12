@@ -40,7 +40,6 @@ data SName
   | CTag
   | CPrototype Object
   deriving (Eq, Show)
--- XXX: make prisms for SName
 
 type Scope = [(Ident, SName)]
 
@@ -255,13 +254,13 @@ lookupProto nm sc = case lookup nm sc of
   Just (CPrototype proto) -> Just proto
   _ -> Nothing
 
-globalNames :: [Decl] -> [(Ident, SName)]
+globalNames :: [Decl] -> Scope
 globalNames xs = execWriter (mapM go xs)
   where
-    go (ObjectDecl proto) = tell [(proto ^. name, CPrototype proto)]
+    go (ObjectDecl proto) = tell [(nameOf proto, CPrototype proto)]
     go _ = tell []
 
-localNames :: Object -> [(Ident, SName)]
+localNames :: Object -> Scope
 localNames obj = tnames ++ mnames
   where
     -- XXX blech
@@ -301,8 +300,8 @@ root :: Local World
 root = asks _croot
 
 -- Apply a function over a measure
-toMeasure :: (Integer -> Integer) -> Ident -> Local ()
-toMeasure f name = do
+overMeasure :: (Integer -> Integer) -> Ident -> Local ()
+overMeasure f name = do
   this <- self
   lift $ measure .= go (this ^. measure)
   where
@@ -351,15 +350,15 @@ evalA ex = case ex of
 
   Inc m a -> do
     print "[Action] INC: %s %s" [m, show a]
-    toMeasure (+ a) m
+    overMeasure (+ a) m
 
   Dec m a -> do
     print "[Action] DEC: %s %s" [m, show a]
-    toMeasure (subtract a) m
+    overMeasure (subtract a) m
 
   Zero m -> do
     print "[Action] ZERO: %s" [m]
-    toMeasure (const 0) m
+    overMeasure (const 0) m
 
   Noop -> return ()
 
