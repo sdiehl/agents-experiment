@@ -2,7 +2,6 @@ module Parser (
   parseFile,
 ) where
 
-import Text.Show.Pretty
 import Control.Monad.State
 
 import Text.Parsec hiding (State)
@@ -42,32 +41,32 @@ operators = [
     ]
   ]
 
-cexpr :: IParser Cond
+cexpr :: Parser Cond
 cexpr =  Ex.buildExpressionParser operators cfactor
 
-prop :: IParser Cond
+prop :: Parser Cond
 prop = do
   nm <- identifier
   return $ Var nm
 
-num :: IParser Cond
+num :: Parser Cond
 num = do
   nm <- integer
   return $ Const nm
 
-has :: IParser Cond
+has :: Parser Cond
 has = do
   reserved "HAS"
   x <- identifier
   return $ Has (Tag x)
 
-neg :: IParser Cond
+neg :: Parser Cond
 neg = do
   reserved "NOT"
   x <- cfactor
   return $ Not x
 
-cfactor :: IParser Cond
+cfactor :: Parser Cond
 cfactor
    =  num
   <|> has
@@ -79,13 +78,13 @@ cfactor
 -- Object
 -------------------------------------------------------------------------------
 
-obj :: IParser Object
+obj :: Parser Object
 obj = do
   o <- withBlock mkObj objname (measuredef <|> actuatordef)
   spaces
   return $ o
 
-objname :: IParser String
+objname :: Parser String
 objname = do
   reserved "OBJECT"
   identifier
@@ -94,7 +93,7 @@ objname = do
 -- Measure
 -------------------------------------------------------------------------------
 
-measuredef :: IParser ObjDecl
+measuredef :: Parser ObjDecl
 measuredef = do
   reserved "MEASURE"
   name <- identifier
@@ -109,14 +108,14 @@ measuredef = do
 -- Actuator
 -------------------------------------------------------------------------------
 
-aif :: IParser Cond
+aif :: Parser Cond
 aif = do
   reserved "IF"
   cond <- cexpr
   colon
   return cond
 
-aalways :: IParser Cond
+aalways :: Parser Cond
 aalways = do
   reserved "ALWAYS"
   colon
@@ -126,7 +125,7 @@ mkActuator :: String -> Cond -> [Action] -> ObjDecl
 mkActuator "if" cond acts = A $ Actuator (If cond) acts
 mkActuator "always" _ acts = A $ Actuator Always acts
 
-actuatordef :: IParser ObjDecl
+actuatordef :: Parser ObjDecl
 actuatordef =
       withBlock (mkActuator "if") aif actions
   <|> withBlock (mkActuator "always") aalways actions
@@ -135,7 +134,7 @@ actuatordef =
 -- Actions
 -------------------------------------------------------------------------------
 
-actions :: IParser Action
+actions :: Parser Action
 actions =
       noop
   <|> create
@@ -146,20 +145,20 @@ actions =
   <|> tag
   <|> untag
 
-create :: IParser Action
+create :: Parser Action
 create = do
   reserved "CREATE"
   nm <- identifier
   return $ Create nm
 
-destroy :: IParser Action
+destroy :: Parser Action
 destroy = do
   reserved "DESTROY"
   nm <- identifier
   -- XXX
   return $ Destroy Self
 
-inc :: IParser Action
+inc :: Parser Action
 inc = do
   reserved "INC"
   nm <- identifier
@@ -168,7 +167,7 @@ inc = do
     integer
   return $ Inc nm (maybe 1 id val)
 
-dec :: IParser Action
+dec :: Parser Action
 dec = do
   reserved "DEC"
   nm <- identifier
@@ -177,25 +176,25 @@ dec = do
     integer
   return $ Dec nm (maybe 1 id val)
 
-zero :: IParser Action
+zero :: Parser Action
 zero = do
   reserved "ZERO"
   nm <- identifier
   return $ Zero nm
 
-tag :: IParser Action
+tag :: Parser Action
 tag = do
   reserved "TAG"
   nm <- identifier
   return $ Set (Tag nm)
 
-untag :: IParser Action
+untag :: Parser Action
 untag = do
   reserved "UNTAG"
   nm <- identifier
   return $ Unset (Tag nm)
 
-noop :: IParser Action
+noop :: Parser Action
 noop = do
   reserved "NOOP"
   return Noop
@@ -204,13 +203,13 @@ noop = do
 -- World
 -------------------------------------------------------------------------------
 
-entity :: IParser (Int, String)
+entity :: Parser (Int, String)
 entity = do
   val <- optionMaybe integer
   nm <- identifier
   return $ ((maybe 0 fromIntegral val), nm)
 
-world :: IParser Decl
+world :: Parser Decl
 world = do
   reserved "WORLD"
   nm <- identifier
@@ -218,12 +217,12 @@ world = do
   entities <- commaSep entity
   return $ WorldDecl nm entities
 
-objdecl :: IParser Decl
+objdecl :: Parser Decl
 objdecl = do
   o <- obj
   return $ ObjectDecl o
 
-probe :: IParser Decl
+probe :: Parser Decl
 probe = do
   path <- identifier `sepBy1` (char '.')
   label <- optionMaybe $ do
@@ -235,20 +234,20 @@ probe = do
 -- Toplevel
 -------------------------------------------------------------------------------
 
-decl :: IParser Decl
+decl :: Parser Decl
 decl =  objdecl
     <|> world
     <|> probe
 
-decls :: IParser [Decl]
+decls :: Parser [Decl]
 decls = many decl
 
-modl :: IParser Module
+modl :: Parser Module
 modl = do
   ds <- decls
   return $ Module "" ds
 
-parser :: IParser a -> SourceName -> String -> Either ParseError a
+parser :: Parser a -> SourceName -> String -> Either ParseError a
 parser f source_name input = runIndent source_name $
   runParserT f () source_name input
 

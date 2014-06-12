@@ -7,7 +7,9 @@ import Text.Parsec.Language (haskellStyle)
 
 import qualified Text.Parsec.Token as Tok
 
-type IParser a = ParsecT String () (State SourcePos) a
+type Parser   = ParsecT String () (State SourcePos)
+type Lexer    = Tok.GenTokenParser String () (State SourcePos)
+type Language = Tok.GenLanguageDef String () (State SourcePos)
 
 -------------------------------------------------------------------------------
 -- Lexer
@@ -24,7 +26,6 @@ reservedOps = [
     "=",
     ".",
     "#",
-    "NOT",
     "<",
     ">",
     "<=",
@@ -48,7 +49,7 @@ reservedNames = [
     "as"
   ]
 
-lexerStyle :: Tok.GenLanguageDef String () (State SourcePos)
+lexerStyle :: Language
 lexerStyle = haskellStyle
   { Tok.commentStart    = "/*"
   , Tok.commentEnd      = "*/"
@@ -63,56 +64,55 @@ lexerStyle = haskellStyle
   , Tok.caseSensitive   = True
   }
 
-{-lexer :: Tok.GenTokenParser ()-}
-lexer :: Tok.GenTokenParser String () (State SourcePos)
+lexer :: Lexer
 lexer = Tok.makeTokenParser lexerStyle
 
-reservedOp :: String -> IParser ()
+reservedOp :: String -> Parser ()
 reservedOp = Tok.reservedOp lexer
 
-reserved :: String -> IParser ()
+reserved :: String -> Parser ()
 reserved = Tok.reserved lexer
 
-identifier :: IParser String
+identifier :: Parser String
 identifier = Tok.identifier lexer
 
-brackets :: IParser a -> IParser a
+brackets :: Parser a -> Parser a
 brackets = Tok.brackets lexer
 
-parens :: IParser a -> IParser a
+parens :: Parser a -> Parser a
 parens = Tok.parens lexer
 
-commaSep :: IParser a -> IParser [a]
+commaSep :: Parser a -> Parser [a]
 commaSep = Tok.commaSep lexer
 
-semiSep :: IParser a -> IParser [a]
+semiSep :: Parser a -> Parser [a]
 semiSep = Tok.semiSep lexer
 
-semiSep1 :: IParser a -> IParser [a]
+semiSep1 :: Parser a -> Parser [a]
 semiSep1 = Tok.semiSep1 lexer
 
-semi :: IParser String
+semi :: Parser String
 semi = Tok.semi lexer
 
-comma :: IParser String
+comma :: Parser String
 comma = Tok.comma lexer
 
-colon :: IParser String
+colon :: Parser String
 colon = Tok.colon lexer
 
-braces :: IParser a -> IParser a
+braces :: Parser a -> Parser a
 braces = Tok.braces lexer
 
-integer :: IParser Integer
+integer :: Parser Integer
 integer = Tok.integer lexer
 
-chr :: IParser Char
+chr :: Parser Char
 chr = Tok.charLiteral lexer
 
-str :: IParser String
+str :: Parser String
 str = Tok.stringLiteral lexer
 
-contents :: IParser a -> IParser a
+contents :: Parser a -> Parser a
 contents p = do
   Tok.whiteSpace lexer
   r <- p
