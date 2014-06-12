@@ -161,10 +161,10 @@ type Simulator = Sim SimState
 type Local = ReaderT LocalCtx (Sim Object)
 
 data SimState = SimState
-  { _ticks  :: Integer
-  , _world  :: World
-  , _imodule :: Module -- XXX: what should this be?
-  , _probes :: [Probe]
+  { _ticks   :: Integer
+  , _world   :: World
+  , _imodule :: Module
+  , _probes  :: [Probe]
   } deriving (Eq, Show)
 
 mkLenses ''SimState
