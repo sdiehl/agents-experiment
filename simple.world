@@ -1,0 +1,53 @@
+OBJECT restaurant
+    MEASURE beer = 100
+
+OBJECT station
+    MEASURE timer = 1
+    IF timer >= 10:
+        CREATE tourist
+        ZERO timer
+
+    ALWAYS:
+        INC timer
+
+OBJECT tourist
+    MEASURE health = 10
+    MEASURE alcohol = 0
+
+    ALWAYS:
+        DEC health
+
+    IF health IS 0:
+        DESTROY SELF
+
+    IF health < 5 AND NOT thirsty:
+        TAG thirsty
+
+    IF health > 5 AND thirsty:
+        UNTAG thirsty
+
+    IF beer:
+        UNTAG beer
+        INC health BY 5
+        INC alcohol BY 1
+
+OBJECT waiter
+    # Does not work yet
+   
+# Create a world with 10 tourists and 2 waiters
+
+/*
+WORLD my_world IS
+	restaurant, station, 10 tourist, 20 waiter
+*/
+
+WORLD simple_world IS
+	restaurant, 1 station, 1 tourist
+
+# Chart beer measure of the root object restaurant
+PROBE restaurant.beer
+
+# Chart health of every object tagged as 'tourist'
+PROBE tourist.health as tourist_health
+
+# vim: set syntax=sql:
