@@ -114,6 +114,8 @@ evalC expr = ev expr
       Not Tr         -> pure Fl
       Not Fl         -> pure Tr
       Not NotDefined -> pure Tr -- XXX
+      Not (Const 0)  -> pure Tr
+      Not (Const _)  -> pure Fl
 
       Not x     -> ev =<< liftA  Not (ev x)
       And a b   -> ev =<< liftA2 And (ev a) (ev b)

@@ -17,7 +17,7 @@ OBJECT tourist
     ALWAYS:
         DEC health
 
-    IF health IS 0:
+    IF NOT health:
         DESTROY SELF
 
     IF health < 5 AND NOT thirsty:
