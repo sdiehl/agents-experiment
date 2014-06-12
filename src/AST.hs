@@ -1,7 +1,35 @@
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE NoMonomorphismRestriction #-}
 
-module AST where
+module AST (
+  Ident,
+  Tags,
+  Module(..),
+  Decl(..),
+  Object(..),
+  Probe(..),
+  Measure(..),
+  Actuator(..),
+  Receptor(..),
+  Tag(..),
+  World(..),
+  Cond(..),
+  Action(..),
+  Named(..),
+  Ref(..),
+
+  ObjDecl(..),
+  mkObj,
+
+  emptyWorld,
+  emptyModule,
+
+  -- public properties of object
+  name,
+  entities,
+  actuators,
+  measure,
+  tags,
+) where
 
 import Lens.Family
 import Lens.Family.TH
@@ -89,7 +117,7 @@ data World = World
   } deriving (Eq, Ord, Show)
 
 emptyWorld :: World
-emptyWorld = World "" [] []
+emptyWorld = World { _worldname = "", _entities = [], _nursery = [] }
 
 notags :: Tags
 notags = S.empty
@@ -115,6 +143,7 @@ instance Named Tag where
 -------------------------------------------------------------------------------
 
 data Module = Module String [Decl]
+ deriving (Eq, Ord, Show)
 
 data Decl
  = EntityDecl Integer String
@@ -143,6 +172,8 @@ mkObj name decls = Object name measures notags actuators
     unA (A a) = a
     unM (M a) = a
 
+emptyModule :: Module
+emptyModule = Module "" []
 
 -------------------------------------------------------------------------------
 -- AST Example

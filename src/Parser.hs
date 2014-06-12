@@ -243,11 +243,16 @@ decl =  objdecl
 decls :: IParser [Decl]
 decls = many decl
 
+modl :: IParser Module
+modl = do
+  ds <- decls
+  return $ Module "" ds
+
 parser :: IParser a -> SourceName -> String -> Either ParseError a
 parser f source_name input = runIndent source_name $
   runParserT f () source_name input
 
-parseFile :: FilePath -> IO (Either ParseError [Decl])
+parseFile :: FilePath -> IO (Either ParseError Module)
 parseFile fname = do
   fcontents <- readFile fname
-  return $ parser (contents decls) fname fcontents
+  return $ parser (contents modl) fname fcontents

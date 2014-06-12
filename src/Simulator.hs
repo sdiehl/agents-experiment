@@ -87,15 +87,16 @@ lookupCond ident ctx =
 
 
 -- | Evaluator for the conditional expression logic.
-evalC :: LocalCtx -> Cond -> Local Cond
-evalC ctx expr = ev expr
+evalC :: Cond -> Local Cond
+evalC expr = ev expr
   where
     ev :: Cond -> Local Cond
     ev (Var x) = do
+      ctx <- ask
       var <- lookupCond x ctx
       case var of
         Just n -> ev n
-        Nothing -> lift $ lift $ throwT (NameError x)
+        Nothing -> throw $ NameError ("Not in object scope: " ++ x)
 
     ev ex = case ex of
       Tr         -> pure Tr
@@ -160,14 +161,14 @@ type Local = ReaderT LocalCtx (Sim Object)
 data SimState = SimState
   { _ticks  :: Integer
   , _world  :: World
-  , _setup  :: [Decl] -- XXX: what should this be?
+  , _imodule :: Module -- XXX: what should this be?
   , _probes :: [Probe]
   } deriving (Eq, Show)
 
 mkLenses ''SimState
 
 emptysim :: SimState
-emptysim = SimState 0 emptyWorld [] []
+emptysim = SimState 0 emptyWorld emptyModule []
 
 run :: Simulator a -> SimState -> IO (Either SimulatorError SimState)
 run f st = runEitherT (execStateT f st)
@@ -189,20 +190,18 @@ print fmt xs = liftIO $ putStrLn $ printfa fmt (map P xs)
 -------------------------------------------------------------------------------
 
 runActuator :: Actuator -> Local ()
-runActuator (Actuator rec acts) = case rec of -- runReceptor rec acts
+runActuator (Actuator rec acts) = case rec of
 
   -- always applies
   Always -> do
-    ctx <- ask
-    performActions ctx acts
+    performActions acts
 
   -- conditionally applies
   If cond -> do
-    ctx <- ask
-    condtest <- evalC ctx cond
+    condtest <- evalC cond
     print "[Cond] %s ==> %s" [show cond, show condtest]
     if condToBool condtest
-    then performActions ctx acts
+    then performActions acts
     else return ()
 
   Once cond -> do
@@ -214,17 +213,16 @@ runActuators = mapM_ runActuator
 inScope :: r -> ReaderT r m a -> m a
 inScope sc m = runReaderT m sc
 
-runActions :: Scope -> Simulator ()
-runActions globals = do
+stepSimulation :: Scope -> Simulator ()
+stepSimulation globals = do
   root <- use world
-  decls <- use setup
+  Module _ decls <- use imodule
 
   -- traverse the world, and run the logic associated with each entity
   objs <- zoom (world.entities.traverse) $ do
     self <- get
     let locals = localNames self
     let ctx = LocalCtx self root globals locals [] False
-    {-pshow ctx-}
 
     nm <- use name
     print "[Entity] %s" [nm]
@@ -238,8 +236,6 @@ runActions globals = do
     return [self]
 
   world.entities .= objs
-
-  return ()
 
 -------------------------------------------------------------------------------
 -- Probes
@@ -270,11 +266,10 @@ localNames obj = tnames ++ mnames
     tnames = fmap (\x -> (nameOf x, CTag)) $ S.toList $ (obj ^. tags)
     mnames = fmap (\x -> (nameOf x, CMeasure)) $ obj ^. measure
 
+-- get the module declaration, create everything in it
 populateWorld :: Scope -> [Decl] -> Simulator ()
 populateWorld sc xs = mapM_ go xs
   where
-    -- get the world declaration, create everything in it
-
     go :: Decl -> Simulator ()
     go (WorldDecl _ ents) = mapM_ spawn ents
     go _ = return ()
@@ -287,8 +282,7 @@ populateWorld sc xs = mapM_ go xs
 
 setupWorld :: Simulator Scope
 setupWorld = do
-  root <- use world
-  decls <- use setup
+  Module _ decls <- use imodule
   let globals = globalNames decls
   populateWorld globals decls
   return globals
@@ -315,6 +309,7 @@ toMeasure f name = do
       | mname == name = (Measure mname (f mval)) : go ms
       | otherwise     = m : go ms
 
+-- Retrieve a measure of the object in scope.
 getMeasure :: Ident -> Local (Maybe Measure)
 getMeasure ident = lift $ do
   ms <- use measure
@@ -331,8 +326,8 @@ unsetTag :: Tag -> Local ()
 unsetTag t = lift $ tags %= S.delete t
 
 -- Sequence a set of actions induced by the actuators in the local state of an object.
-performActions :: LocalCtx -> [Action] -> Local ()
-performActions ctx acts = mapM_ evalA acts
+performActions :: [Action] -> Local ()
+performActions acts = mapM_ evalA acts
 
 -- Evaluate an action, takes an action an some effect over the local world.
 evalA :: Action -> Local ()
@@ -346,10 +341,11 @@ evalA ex = case ex of
 
   Set a -> do
     print "[Action] SET %s" [show a]
+    setTag a
 
   Unset a -> do
     print "[Action] UNSET %s" [show a]
-    setTag a
+    unsetTag a
 
   Inc m a -> do
     print "[Action] INC: %s %s" [m, show a]
@@ -363,24 +359,26 @@ evalA ex = case ex of
     print "[Action] ZERO: %s" [m]
     toMeasure (const 0) m
 
-  act -> throw $ NotImplemented (show act)
+  Noop -> return ()
 
+-- one iteration of the simulation
 eventLoop :: Scope -> Int -> Simulator ()
 eventLoop sc i = do
   print "[Tick] Start %s" [show i]
-  runActions sc
+  stepSimulation sc
   tick
   print "[Tick] Finished %s" [show i]
   puts $ replicate 25 '-'
 
+-- generate the monadic context for n-steps of the simulation
 steps :: Int -> (Scope -> Int -> Simulator a) -> Simulator [a]
 steps n f = do
   globals <- setupWorld
   iters <- forM [1..n] (f globals)
   return iters
 
-simulate :: [Decl] -> IO (Either SimulatorError SimState)
-simulate decls = run loop state
+simulate :: Module -> IO (Either SimulatorError SimState)
+simulate mod = run loop state
   where
     loop = steps 15 eventLoop
-    state = emptysim { _setup = decls }
+    state = emptysim { _imodule = mod  }

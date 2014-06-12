@@ -1,8 +1,7 @@
 module Main where
 
-import AST
-import Lexer
-import Parser
+import AST (Module)
+import qualified Parser
 import qualified Simulator
 
 import Text.Show.Pretty
@@ -21,10 +20,10 @@ import System.Console.Haskeline
 -- REPL
 -------------------------------------------------------------------------------
 
-type Repl a = StateT IState (InputT IO) a
+type Repl = StateT IState (InputT IO)
 
 data IState = IState
-  { _tenv :: Maybe [Decl]
+  { _module :: Maybe Module
   , _curFile :: Maybe FilePath
   }
 
@@ -54,22 +53,24 @@ reload = do
 -- Run the simulation
 run :: Repl ()
 run = do
-  env <- gets _tenv
-  case env of
-    Just decls -> do
-      output <- liftIO $ Simulator.simulate decls
-      case output of
-        Left err -> liftIO $ putStrLn $ "Simulation Error: " ++ (show err)
-        Right res -> do
-          {-liftIO $ putStrLn (ppShow res)-}
-          liftIO $ putStrLn "Done."
-
+  mod <- gets _module
+  case mod of
     Nothing -> liftIO $ putStrLn "No file loaded."
+    Just mod -> simulate mod
+
+simulate :: Module -> Repl ()
+simulate mod = do
+  output <- liftIO $ Simulator.simulate mod
+  case output of
+    Left err -> liftIO $ putStrLn $ "Simulation Error: " ++ (show err)
+    Right res -> do
+      {-liftIO $ putStrLn (ppShow res)-}
+      liftIO $ putStrLn "Done."
 
 -- Run the simulation
 dump :: Repl ()
 dump = do
-  env <- gets _tenv
+  env <- gets _module
   case env of
     Just env' -> liftIO $ putStrLn (ppShow env')
     Nothing -> liftIO $ putStrLn "No file loaded."
@@ -88,10 +89,10 @@ help = liftIO $ do
 -- evaluate a module
 modl :: FilePath -> String -> Repl ()
 modl fname source = do
-  mod <- liftIO $ parseFile fname
+  mod <- liftIO $ Parser.parseFile fname
   case mod of
     Left  err -> liftIO $ print err
-    Right res -> modify $ \s -> s { _tenv = Just res }
+    Right res -> modify $ \s -> s { _module = Just res }
 
 -- evaluate an expression
 exec :: String -> Repl ()
